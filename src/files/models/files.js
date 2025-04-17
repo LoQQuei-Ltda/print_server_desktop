@@ -50,5 +50,23 @@ module.exports = {
                 message: "Ocorreu um erro ao obter os dados! Tente novamente mais tarde"
             }
         }
-    }
+    },
+    updateSynced: async (id) => {
+        try {
+            const sql = `UPDATE files SET synced = TRUE WHERE id = ?;`;
+
+            await Core(sql, id);
+        } catch (error) {
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
+                operation: 'Update Synced',
+                errorMessage: error.message,
+                errorStack: error.stack
+            });
+
+            return {
+                message: "Ocorreu um erro ao atualizar o arquivo! Tente novamente mais tarde"
+            }
+        }
+    },
 }
