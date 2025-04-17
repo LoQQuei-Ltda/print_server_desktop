@@ -1,3 +1,4 @@
+const fs = require('fs');
 const Files = require('../models/files');
 const Log = require('../../../helper/log');
 const CONSTANTS = require('../../../helper/constants');
@@ -59,6 +60,33 @@ module.exports = {
             }); 
 
             return responseHandler.internalServerError(response, 'Ocorreu um erro ao sincronizar o arquivo!');
+        }
+    },
+    deleteFile: async (request, response) => {
+        try {
+            const id = request.params.id;
+
+            const file = await Files.getById(id);
+            if (file.message) {
+                return responseHandler.badRequest(response, file.message);
+            }
+
+            if (fs.existsSync(file.path)) {
+                await fs.promises.unlink(file.path);
+            }
+
+            await Files.delete(id);
+
+            return responseHandler.success(response, 'Arquivo excluído com sucesso!');
+        } catch (error) {
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
+                operation: 'Delete File',
+                errorMessage: error.message,
+                errorStack: error.stack
+            });
+
+            return responseHandler.internalServerError(response, 'Ocorreu um erro ao excluir o arquivo!');
         }
     }
 }

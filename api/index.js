@@ -8,7 +8,7 @@ const responseHandler = require('../helper/responseHandler');
 const { createPrinter, updatePrinter, getPrinters } = require('../src/printers/controllers/printers');
 
 // Files
-const { getFiles, updateSynced } = require('../src/files/controllers/files');
+const { getFiles, updateSynced, deleteFile } = require('../src/files/controllers/files');
 
 // Print File
 const { printFile } = require('../src/files/controllers/print');
@@ -26,6 +26,7 @@ router.put('/printers', updatePrinter);
 
 // Files
 router.get('/files', getFiles);
+router.delete('/files/:id', deleteFile);
 
 // Get Sync Info
 router.get('/sync', getSyncInfo);
