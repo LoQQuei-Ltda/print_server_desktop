@@ -49,7 +49,13 @@ module.exports = {
     },
     insert: async (data) => {
         try {
-            const sql = `INSERT INTO printers (id, name, status, createdAt, updatedAt) VALUES ($1, $2, $3, $4, $5) RETURNING *;`;
+            const sql = `INSERT INTO printers (
+                id, name, status, createdAt, updatedAt,
+                protocol, mac_address, driver, uri, description,
+                location, ip_address, port
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+            ) RETURNING *;`;
 
             const printer = await Core(sql, data);
 
@@ -69,7 +75,19 @@ module.exports = {
     },
     update: async (data) => {
         try {
-            const sql = `UPDATE printers SET name = $1, status = $2, updatedAt = $3 WHERE id = $4 RETURNING *;`;
+            const sql = `UPDATE printers SET 
+                name = $1, 
+                status = $2, 
+                updatedAt = $3,
+                protocol = $4,
+                mac_address = $5,
+                driver = $6,
+                uri = $7,
+                description = $8,
+                location = $9,
+                ip_address = $10,
+                port = $11
+            WHERE id = $12 RETURNING *;`;
 
             const printer = await Core(sql, data);
 

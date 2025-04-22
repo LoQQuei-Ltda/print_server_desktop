@@ -5,7 +5,13 @@ const express = require('express');
 const responseHandler = require('../helper/responseHandler');
 
 // Printers
-const { createPrinter, updatePrinter, getPrinters } = require('../src/printers/controllers/printers');
+const { 
+    createPrinter, 
+    updatePrinter, 
+    getPrinters,
+    discoverPrinters,
+    getAvailableDrivers
+} = require('../src/printers/controllers/printers');
 
 // Files
 const { getFiles, updateSynced, deleteFile } = require('../src/files/controllers/files');
@@ -15,6 +21,7 @@ const { printFile } = require('../src/files/controllers/print');
 
 // Sync
 const { getSyncInfo } = require('../src/sync/controllers/getInfo');
+const { syncPrinters } = require('../src/sync/controllers/printers');
 
 const router = express.Router();
 
@@ -23,6 +30,8 @@ const router = express.Router();
 router.get('/printers', getPrinters);
 router.post('/printers', createPrinter);
 router.put('/printers', updatePrinter);
+router.get('/printers/discover', discoverPrinters);
+router.get('/printers/drivers', getAvailableDrivers);
 
 // Files
 router.get('/files', getFiles);
@@ -33,6 +42,9 @@ router.get('/sync', getSyncInfo);
 
 // Sync Files
 router.post('/sync', updateSynced);
+
+// Sync Printers
+router.post('/sync/printers', syncPrinters);
 
 // Print File
 router.post('/print', printFile);
