@@ -2,7 +2,7 @@ const Log = require('../../../helper/log');
 const Printer = require('../../printers/models/printers');
 const CONSTANTS = require('../../../helper/constants');
 const responseHandler = require('../../../helper/responseHandler');
-const cupsUtils = require('../../printers/utils/cups');
+const cupsUtils = require('../../printers/helpers/cups');
 
 module.exports = {
     /**
