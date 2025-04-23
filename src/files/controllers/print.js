@@ -6,6 +6,22 @@ const CONSTANTS = require('../../../helper/constants');
 const Printers = require('../../printers/models/printers');
 const responseHandler = require('../../../helper/responseHandler');
 
+const deleteFile = async (filePath) => {
+    try {
+        if (fs.existsSync(filePath)) {
+            await fs.promises.unlink(filePath);
+        }
+    } catch (error) {
+        console.error(error);
+        Log.error({
+            entity: CONSTANTS.LOG.MODULE.MONITOR,
+            operation: 'Delete File',
+            errorMessage: error.message,
+            errorStack: error.stack
+        });
+    }
+}
+
 module.exports = {
     printFile: async (request, response) => {
         try {
@@ -22,6 +38,7 @@ module.exports = {
             }
 
             const printer = await Printers.getById(assetId);
+            console.log("printer", printer);
 
             if (!printer) {
                 return responseHandler.badRequest(response, 'Impressora não encontrada!');
@@ -32,6 +49,8 @@ module.exports = {
             }
 
             const printerName = printer.name;
+
+            console.log(`[${fileId}] Imprimindo arquivo ${file.path} para impressora ${printerName}`);
             
             if (!fs.existsSync(file.path)) {
                 await Files.delete(fileId);
@@ -48,7 +67,7 @@ module.exports = {
             responseHandler.success(response, 'Arquivo impresso com sucesso!');
             
             setImmediate(async () => {
-                await fs.unlink(file.path);
+                await deleteFile(file.path);
             });
         } catch (error) {
             console.error(error);
