@@ -93,6 +93,7 @@ module.exports = {
                         // Extrair o IP da linha
                         const match = line.match(/\(([0-9.]+)\)/);
                         if (match && match[1]) {
+                            console.log('IP:', match[1]);
                             return match[1];
                         }
                     }
@@ -110,6 +111,7 @@ module.exports = {
                     if (line.toLowerCase().includes(normalizedMac)) {
                         const parts = line.split(' ');
                         if (parts[0] && /^[0-9.]+$/.test(parts[0])) {
+                            console.log('IP:', parts[1]);
                             return parts[0];
                         }
                     }
@@ -128,6 +130,8 @@ module.exports = {
                     const gateway = match[1];
                     const networkBase = gateway.split('.').slice(0, 3).join('.');
                     const networkRange = `${networkBase}.0/24`;
+
+                    console.log('Network range:', networkRange);
                     
                     // Escanear a rede com nmap
                     const { stdout: nmapOutput } = await execAsync(`nmap -sn ${networkRange}`);
@@ -143,6 +147,7 @@ module.exports = {
                         if (line.toLowerCase().includes(normalizedMac)) {
                             const ipMatch = line.match(/\(([0-9.]+)\)/);
                             if (ipMatch && ipMatch[1]) {
+                                console.log('IP:', ipMatch[1]);
                                 return ipMatch[1];
                             }
                         }
