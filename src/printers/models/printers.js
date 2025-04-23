@@ -5,7 +5,7 @@ const CONSTANTS = require('../../../helper/constants');
 module.exports = {
     getAll: async () => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.SCHEMA}.printers;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers;`;
 
             let printers = await Core(sql);
 
@@ -30,7 +30,7 @@ module.exports = {
     },
     getById: async (id) => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.SCHEMA}.printers WHERE id = $1;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE id = $1;`;
 
             const printer = await Core(sql, [id]);
 
@@ -51,7 +51,7 @@ module.exports = {
     },
     insert: async (data) => {
         try {
-            const sql = `INSERT INTO ${CONSTANTS.DB.SCHEMA}.printers (
+            const sql = `INSERT INTO ${CONSTANTS.DB.DATABASE}.printers (
                 id, name, status, createdAt, updatedAt,
                 protocol, mac_address, driver, uri, description,
                 location, ip_address, port
@@ -78,7 +78,7 @@ module.exports = {
     },
     update: async (data) => {
         try {
-            const sql = `UPDATE ${CONSTANTS.DB.SCHEMA}.printers SET 
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.printers SET 
                 name = $1, 
                 status = $2, 
                 updatedAt = $3,

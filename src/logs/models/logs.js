@@ -9,7 +9,7 @@ const Log = {
      */
     insert: async (data) => {
         try {
-            const sql = `INSERT INTO ${CONSTANTS.DB.SCHEMA}.logs (id, createdAt, logType, entity, operation, beforeData, afterData, errorMessage, errorStack, userInfo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;`;
+            const sql = `INSERT INTO ${CONSTANTS.DB.DATABASE}.logs (id, createdAt, logType, entity, operation, beforeData, afterData, errorMessage, errorStack, userInfo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *;`;
 
             const log = await Core(sql, data);
 

@@ -5,7 +5,7 @@ const CONSTANTS = require('../../../helper/constants');
 module.exports = {
     getById: async (id) => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.SCHEMA}.files WHERE id = $1;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.files WHERE id = $1;`;
 
             const result = await Core(sql, [id]);
             return result;
@@ -25,7 +25,7 @@ module.exports = {
     },
     insert: async (data) => {
         try {
-            const sql = `INSERT INTO ${CONSTANTS.DB.SCHEMA}.files (id, assetId, fileName, pages, path, createdAt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
+            const sql = `INSERT INTO ${CONSTANTS.DB.DATABASE}.files (id, assetId, fileName, pages, path, createdAt) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
             
             const result = await Core(sql, data);
             return result;
@@ -45,7 +45,7 @@ module.exports = {
     },
     delete: async (id) => {
         try {
-            const sql = `UPDATE ${CONSTANTS.DB.SCHEMA}.files SET deletedAt = $1 WHERE id = $2;`;
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.files SET deletedAt = $1 WHERE id = $2;`;
 
             const result = await Core(sql, [new Date(), id]);
 

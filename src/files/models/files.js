@@ -5,7 +5,7 @@ const CONSTANTS = require('../../../helper/constants');
 module.exports = {
     getForPrint: async () => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.SCHEMA}.files WHERE deletedAt IS NULL AND printed = FALSE;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.files WHERE deletedAt IS NULL AND printed = FALSE;`;
 
             let result = await Core(sql);
 
@@ -30,7 +30,7 @@ module.exports = {
     },
     getForSync: async () => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.SCHEMA}.files WHERE printed = TRUE AND synced = FALSE;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.files WHERE printed = TRUE AND synced = FALSE;`;
 
             let result = await Core(sql);
 
@@ -55,7 +55,7 @@ module.exports = {
     },
     updateSynced: async (id) => {
         try {
-            const sql = `UPDATE ${CONSTANTS.DB.SCHEMA}.files SET synced = TRUE WHERE id = ?;`;
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.files SET synced = TRUE WHERE id = ?;`;
 
             await Core(sql, id);
         } catch (error) {
