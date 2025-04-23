@@ -1,9 +1,0 @@
-ALTER TABLE printers 
-    DROP COLUMN IF EXISTS protocol,
-    DROP COLUMN IF EXISTS mac_address,
-    DROP COLUMN IF EXISTS driver,
-    DROP COLUMN IF EXISTS uri,
-    DROP COLUMN IF EXISTS description,
-    DROP COLUMN IF EXISTS location,
-    DROP COLUMN IF EXISTS ip_address,
-    DROP COLUMN IF EXISTS port;

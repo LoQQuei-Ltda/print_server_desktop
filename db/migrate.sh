@@ -11,17 +11,11 @@ BASE_DIR=$(dirname "$0")
 # Variáveis de ambiente
 MIGRATION_DIR=$BASE_DIR/sql
 LOG_FILE=/var/log/migrations.log
-DB_HOST=${DB_HOST:-db}
-DB_PORT=${DB_PORT:-5432}
-DB_USERNAME=${DB_USERNAME}
-DB_PASSWORD=${DB_PASSWORD}
-DB_NAME=${DB_DATABASE}
-
-echo "DB_HOST: $DB_HOST"
-echo "DB_PORT: $DB_PORT"
-echo "DB_USERNAME: $DB_USERNAME"
-echo "DB_PASSWORD: $DB_PASSWORD"
-echo "DB_NAME: $DB_NAME"
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres_print
+DB_PASSWORD=root_print
+DB_NAME=print_management
 
 # Cria o arquivo de log se não existir
 touch "$LOG_FILE"
