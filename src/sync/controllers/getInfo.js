@@ -14,6 +14,7 @@ module.exports = {
 
             return responseHandler.success(response, 'Informações de sincronização encontradas!', files);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Get Sync Info',

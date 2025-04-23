@@ -57,6 +57,7 @@ module.exports = {
                 protocol: foundPort === 631 ? 'ipp' : foundPort === 515 ? 'lpd' : 'socket'
             };
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Find Printer by MAC',
@@ -153,6 +154,7 @@ module.exports = {
             
             return null;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Get IP from MAC',

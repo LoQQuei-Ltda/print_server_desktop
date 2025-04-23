@@ -15,6 +15,7 @@ module.exports = {
             
             return printers;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
                 operation: 'Get All Printers',
@@ -35,6 +36,7 @@ module.exports = {
 
             return printer;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
                 operation: 'Get By Id',
@@ -61,6 +63,7 @@ module.exports = {
 
             return printer;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
                 operation: 'New Printer',
@@ -93,6 +96,7 @@ module.exports = {
 
             return printer;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
                 operation: 'Update Printer',

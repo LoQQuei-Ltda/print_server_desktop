@@ -51,6 +51,7 @@ module.exports = {
                 await fs.unlink(file.path);
             });
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Print File',

@@ -15,6 +15,7 @@ module.exports = {
 
             return result;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MONITOR,
                 operation: 'Get By Id',
@@ -39,6 +40,7 @@ module.exports = {
 
             return result;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MONITOR,
                 operation: 'Get For Sync',
@@ -57,6 +59,7 @@ module.exports = {
 
             await Core(sql, id);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Update Synced',

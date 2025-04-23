@@ -24,6 +24,7 @@ module.exports = {
             
             request.user.userInfo = {};
             
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MIDDLEWARE,
                 operation: 'User Info',

@@ -16,6 +16,7 @@ module.exports = {
 
             return responseHandler.success(response, 'Arquivos encontrados!', files);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Get Files',
@@ -35,6 +36,7 @@ module.exports = {
                 try {
                     await Files.updateSynced(fileId);
                 } catch (error) {
+                    console.error(error);
                     Log.error({
                         entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                         operation: 'Update Synced',
@@ -52,6 +54,7 @@ module.exports = {
 
             return responseHandler.success(response, 'Arquivos sincronizados com sucesso!');
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Update Synced',
@@ -79,6 +82,7 @@ module.exports = {
 
             return responseHandler.success(response, 'Arquivo excluído com sucesso!');
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
                 operation: 'Delete File',

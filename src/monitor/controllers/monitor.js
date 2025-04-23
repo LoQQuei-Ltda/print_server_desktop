@@ -14,6 +14,7 @@ const getPages = async (filePath) => {
         const pdf = await PDFDocument.load(data);
         return pdf.getPageCount();
     } catch (error) {
+        console.error(error);
         Log.error({
             entity: CONSTANTS.LOG.MODULE.MONITOR,
             operation: 'Get Pages',
@@ -30,6 +31,7 @@ const deleteFile = async (filePath) => {
             await fs.promises.unlink(filePath);
         }
     } catch (error) {
+        console.error(error);
         Log.error({
             entity: CONSTANTS.LOG.MODULE.MONITOR,
             operation: 'Delete File',
@@ -64,6 +66,7 @@ const deleteOldFiles = async (dirPath) => {
             }
         }
     } catch (error) {
+        console.error(error);
         Log.error({
             entity: CONSTANTS.LOG.MODULE.MONITOR,
             operation: 'Delete Old Files',

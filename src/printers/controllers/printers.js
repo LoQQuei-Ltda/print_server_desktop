@@ -15,6 +15,7 @@ module.exports = {
 
             return responseHandler.success(response, 'Impressoras encontradas!', printers);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Get Printers',
@@ -95,6 +96,7 @@ module.exports = {
 
             return responseHandler.created(response, { message: 'Impressora criada com sucesso!' });
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Create Printers',
@@ -187,6 +189,7 @@ module.exports = {
 
             return responseHandler.success(response, { message: 'Impressora alterada com sucesso!' });
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Update Printers',
@@ -204,6 +207,7 @@ module.exports = {
             
             return responseHandler.success(response, 'Impressoras descobertas!', printers);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Discover Printers',
@@ -221,6 +225,7 @@ module.exports = {
             
             return responseHandler.success(response, 'Drivers disponíveis!', drivers);
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Get Available Drivers',

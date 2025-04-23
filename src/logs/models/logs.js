@@ -13,7 +13,9 @@ const Log = {
             const log = await Core(sql, data);
 
             return log;
-        } catch {
+        } catch (error) {
+            console.error(error);
+
             return {
                 message: "Ocorreu um erro ao cadastrar o log! Tente novamente mais tarde"
             };

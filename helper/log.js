@@ -35,6 +35,8 @@ const createLogDB = async (data) => {
             success: true
         }
     } catch (error) {
+        console.error(error);
+        
         return {
             success: false,
             message: error.message

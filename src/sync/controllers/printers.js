@@ -139,6 +139,7 @@ module.exports = {
             });
 
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Sync Printers',

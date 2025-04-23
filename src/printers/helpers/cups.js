@@ -91,6 +91,7 @@ module.exports = {
 
             return { success: true, message: 'Impressora configurada com sucesso no CUPS' };
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Setup CUPS Printer',
@@ -112,6 +113,7 @@ module.exports = {
             await execAsync(`lpadmin -x "${printerName}"`);
             return { success: true, message: 'Impressora removida com sucesso do CUPS' };
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Remove CUPS Printer',
@@ -140,6 +142,7 @@ module.exports = {
             
             return drivers;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Get CUPS Drivers',
@@ -172,6 +175,7 @@ module.exports = {
             
             return printers;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Discover Printers',

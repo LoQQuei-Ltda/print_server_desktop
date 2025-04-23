@@ -10,6 +10,7 @@ module.exports = {
             const result = await Core(sql, [id]);
             return result;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MONITOR,
                 operation: 'Get By Id',
@@ -29,6 +30,7 @@ module.exports = {
             const result = await Core(sql, data);
             return result;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MONITOR,
                 operation: 'Insert Data',
@@ -49,6 +51,7 @@ module.exports = {
 
             return result;
         } catch (error) {
+            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.MONITOR,
                 operation: 'Delete Data',
