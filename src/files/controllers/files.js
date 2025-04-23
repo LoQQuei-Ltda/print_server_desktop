@@ -90,8 +90,6 @@ module.exports = {
                 return responseHandler.badRequest(response, file.message);
             }
 
-            console.log(`Deletando arquivo ${file.path}`);
-            console.log(fs.existsSync(file.path));
             await deleteFile(file.path);
 
             await Files.delete(id);
