@@ -2,8 +2,6 @@ const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
 const net = require('net');
-const Log = require('../../../helper/log');
-const CONSTANTS = require('../../../helper/constants');
 
 module.exports = {
     /**
@@ -16,12 +14,10 @@ module.exports = {
     testPrinterConnection: async (ip, port = 9100, timeout = 5000) => {
         return new Promise((resolve) => {
             const socket = new net.Socket();
-            let connected = false;
             
             socket.setTimeout(timeout);
             
             socket.on('connect', () => {
-                connected = true;
                 socket.destroy();
                 resolve(true);
             });
@@ -40,7 +36,7 @@ module.exports = {
             
             try {
                 socket.connect(port, ip);
-            } catch (error) {
+            } catch {
                 resolve(false);
             }
         });

@@ -33,7 +33,7 @@ module.exports = {
             try {
                 await execAsync(`lpadmin -x "${name}"`);
                 console.log(`Impressora ${name} removida para reconfiguração`);
-            } catch (error) {
+            } catch {
                 // Ignorar erro se a impressora não existir
                 console.log(`Impressora ${name} não existia previamente`);
             }
@@ -56,7 +56,7 @@ module.exports = {
                             // Se não encontrar PPD específico, usar raw
                             command += ' -m raw';
                         }
-                    } catch (error) {
+                    } catch {
                         // Se falhar, usar raw como fallback
                         command += ' -m raw';
                     }

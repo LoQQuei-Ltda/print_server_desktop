@@ -222,6 +222,10 @@ module.exports = {
      * @private
      */
     async _createPrinter(printer, connectivityTest, syncResults) {
+        if (!printer.driver) {
+            printer.driver = 'drv:///cupsfilters.drv/pwgrast.ppd';
+        }
+
         const {
             id,
             name,
