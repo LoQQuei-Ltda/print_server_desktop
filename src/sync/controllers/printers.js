@@ -80,9 +80,6 @@ module.exports = {
                         port: port
                     });
                     
-                    // Log do resultado do teste
-                    console.log(`[${id}] Resultado do teste: ${JSON.stringify(connectivityTest)}`);
-
                     // Construir a URI baseada no protocolo e IP
                     const printerUri = module.exports._buildPrinterUri(protocol, ip_address, port);
 

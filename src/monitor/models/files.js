@@ -43,6 +43,27 @@ module.exports = {
             }
         }
     },
+    updatePrinted: async (id, assetId) => {
+        try {
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.files SET printed = TRUE, assetId = $2 WHERE id = $1;`;
+
+            const result = await Core(sql, [id, assetId]);
+
+            return result;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINT_JOBS,
+                operation: 'Update Printed',
+                errorMessage: error.message,
+                errorStack: error.stack
+            })
+
+            return {
+                message: "Ocorreu um erro ao atualizar o arquivo! Tente novamente mais tarde"
+            }
+        }
+    },
     delete: async (id) => {
         try {
             const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.files SET deletedAt = $1 WHERE id = $2;`;
