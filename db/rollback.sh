@@ -9,11 +9,11 @@ fi
 # Variáveis de ambiente
 MIGRATION_DIR="$BASE_DIR/db/sql"
 LOG_FILE=/var/log/migrations.log
-DB_HOST=${DB_HOST:-db}
-DB_PORT=${DB_PORT:-5432}
-DB_USERNAME=${DB_USERNAME}
-DB_PASSWORD=${DB_PASSWORD}
-DB_NAME=${DB_DATABASE}
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres_print
+DB_PASSWORD=root_print
+DB_NAME=print_management
 
 # Função para verificar a disponibilidade do banco de dados
 check_db() {
