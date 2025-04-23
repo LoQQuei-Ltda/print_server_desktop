@@ -4,6 +4,22 @@ const Log = require('../../../helper/log');
 const CONSTANTS = require('../../../helper/constants');
 const responseHandler = require('../../../helper/responseHandler');
 
+const deleteFile = async (filePath) => {
+    try {
+        if (fs.existsSync(filePath)) {
+            await fs.promises.unlink(filePath);
+        }
+    } catch (error) {
+        console.error(error);
+        Log.error({
+            entity: CONSTANTS.LOG.MODULE.MONITOR,
+            operation: 'Delete File',
+            errorMessage: error.message,
+            errorStack: error.stack
+        });
+    }
+}
+
 module.exports = {
     getFiles: async (request, response) => {
         try {
@@ -74,9 +90,9 @@ module.exports = {
                 return responseHandler.badRequest(response, file.message);
             }
 
-            if (fs.existsSync(file.path)) {
-                await fs.promises.unlink(file.path);
-            }
+            console.log(`Deletando arquivo ${file.path}`);
+            console.log(fs.existsSync(file.path));
+            await deleteFile(file.path);
 
             await Files.delete(id);
 
