@@ -3,6 +3,26 @@ const { Core } = require('../../../db/core');
 const CONSTANTS = require('../../../helper/constants');
 
 module.exports = {
+    getById: async (id) => {
+        try {
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.files WHERE id = $1;`;
+
+            const result = await Core(sql, [id]);
+            return result;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.MONITOR,
+                operation: 'Get By Id',
+                errorMessage: error.message,
+                errorStack: error.stack
+            });
+
+            return {
+                message: "Ocorreu um erro ao obter os dados! Tente novamente mais tarde"
+            }
+        }
+    },
     getForPrint: async () => {
         try {
             const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.files WHERE deletedAt IS NULL AND printed = FALSE;`;
