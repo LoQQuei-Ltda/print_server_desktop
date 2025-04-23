@@ -75,7 +75,7 @@ module.exports = {
 
                     // Testar conectividade usando o IP fornecido
                     console.log(`[${id}] Testando conectividade para ${ip_address}:${port}...`);
-                    const connectivityTest = await this._testPrinterConnectivity({
+                    const connectivityTest = await module.exports._testPrinterConnectivity({
                         ip: ip_address,
                         port: port
                     });
@@ -84,7 +84,7 @@ module.exports = {
                     console.log(`[${id}] Resultado do teste: ${JSON.stringify(connectivityTest)}`);
 
                     // Construir a URI baseada no protocolo e IP
-                    const printerUri = this._buildPrinterUri(protocol, ip_address, port);
+                    const printerUri = module.exports._buildPrinterUri(protocol, ip_address, port);
 
                     // Preparar dados da impressora
                     const printerData = {
@@ -106,10 +106,10 @@ module.exports = {
 
                     if (!existingPrinter) {
                         // Impressora não existe - criar nova
-                        await this._createPrinter(printerData, connectivityTest, syncResults);
+                        await module.exports._createPrinter(printerData, connectivityTest, syncResults);
                     } else {
                         // Impressora existe - verificar se precisa atualizar
-                        await this._updatePrinterIfNeeded(printerData, existingPrinter, connectivityTest, syncResults);
+                        await module.exports._updatePrinterIfNeeded(printerData, existingPrinter, connectivityTest, syncResults);
                     }
                 } catch (error) {
                     console.error(`Erro ao processar impressora ${printer.id}:`, error);
@@ -308,7 +308,7 @@ module.exports = {
      * @private
      */
     async _updatePrinterIfNeeded(newData, currentData, connectivityTest, syncResults) {
-        const changes = this._detectChanges(newData, currentData);
+        const changes = module.exports._detectChanges(newData, currentData);
 
         // Verificar se o IP mudou
         if (newData.ip_address !== currentData.ip_address) {
