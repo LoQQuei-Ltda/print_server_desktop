@@ -1,9 +1,9 @@
 const Log = require('../../../helper/log');
-const CONSTANTS = require('../../../helper/constants');
-const cupsUtils = require('../../printers/helpers/cups');
 const Printer = require('../../printers/models/printers');
-const networkUtils = require('../../printers/helpers/network');
+const CONSTANTS = require('../../../helper/constants');
 const responseHandler = require('../../../helper/responseHandler');
+const cupsUtils = require('../../printers/helpers/cups');
+const networkUtils = require('../../printers/helpers/network');
 
 module.exports = {
     /**
@@ -44,8 +44,11 @@ module.exports = {
                         id,
                         name,
                         mac_address,
+                        ip_address,
                         status = 'functional',
                         driver = 'generic',
+                        port = 9100,
+                        protocol = 'socket',
                         description = '',
                         location = '',
                         createdAt = new Date()
@@ -60,35 +63,28 @@ module.exports = {
                         continue;
                     }
 
-                    if (!mac_address) {
+                    if (!ip_address) {
                         syncResults.errors.push({
                             id,
-                            error: 'MAC address é obrigatório'
+                            error: 'Endereço IP é obrigatório'
                         });
                         continue;
                     }
 
-                    // Passo 1: Descobrir IP pelo MAC
-                    console.log(`[${id}] Descobrindo IP para MAC ${mac_address}...`);
-                    const networkInfo = await networkUtils.findPrinterByMac(mac_address);
+                    console.log(`[${id}] Iniciando sincronização para impressora ${name} (${ip_address}:${port})`);
 
-                    if (!networkInfo.found || !networkInfo.ip) {
-                        syncResults.errors.push({
-                            id,
-                            name,
-                            error: `Não foi possível descobrir o IP para o MAC ${mac_address}`
-                        });
-                        continue;
-                    }
-
-                    console.log(`[${id}] IP descoberto: ${networkInfo.ip}, Porta: ${networkInfo.port}`);
-
-                    // Passo 2: Testar conectividade
-                    console.log(`[${id}] Testando conectividade...`);
-                    const connectivityTest = await this._testPrinterConnectivity(networkInfo);
+                    // Testar conectividade usando o IP fornecido
+                    console.log(`[${id}] Testando conectividade para ${ip_address}:${port}...`);
+                    const connectivityTest = await this._testPrinterConnectivity({
+                        ip: ip_address,
+                        port: port
+                    });
                     
                     // Log do resultado do teste
                     console.log(`[${id}] Resultado do teste: ${JSON.stringify(connectivityTest)}`);
+
+                    // Construir a URI baseada no protocolo e IP
+                    const printerUri = this._buildPrinterUri(protocol, ip_address, port);
 
                     // Preparar dados da impressora
                     const printerData = {
@@ -100,10 +96,10 @@ module.exports = {
                         description,
                         location,
                         createdAt,
-                        ip_address: networkInfo.ip,
-                        port: networkInfo.port || 9100,
-                        protocol: networkInfo.protocol || 'socket',
-                        uri: printer.uri || `${networkInfo.protocol || 'socket'}://${networkInfo.ip}:${networkInfo.port || 9100}`
+                        ip_address,
+                        port,
+                        protocol,
+                        uri: printerUri
                     };
 
                     const existingPrinter = currentPrintersMap.get(id);
@@ -139,7 +135,6 @@ module.exports = {
             });
 
         } catch (error) {
-            console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Sync Printers',
@@ -153,10 +148,34 @@ module.exports = {
     },
 
     /**
+     * Constrói a URI da impressora
+     * @private
+     */
+    _buildPrinterUri(protocol, ip, port) {
+        if (!ip) {
+            throw new Error('IP address é obrigatório para construir a URI');
+        }
+
+        switch (protocol?.toLowerCase()) {
+            case 'ipp':
+                return `ipp://${ip}${port ? ':' + port : ':631'}/ipp/print`;
+            case 'lpd':
+                return `lpd://${ip}${port ? ':' + port : ':515'}/queue`;
+            case 'smb':
+                return `smb://${ip}/printer`;
+            case 'dnssd':
+                return `dnssd://${ip}/`;
+            case 'socket':
+            default:
+                return `socket://${ip}${port ? ':' + port : ':9100'}`;
+        }
+    },
+
+    /**
      * Testa a conectividade da impressora
      * @private
      */
-    async _testPrinterConnectivity(networkInfo) {
+    async _testPrinterConnectivity(printerInfo) {
         const results = {
             pingTest: false,
             portTest: false,
@@ -167,23 +186,23 @@ module.exports = {
 
         try {
             // Teste 1: Ping
-            console.log(`Testando ping para ${networkInfo.ip}...`);
-            const pingResult = await networkUtils.pingTest(networkInfo.ip);
+            console.log(`Testando ping para ${printerInfo.ip}...`);
+            const pingResult = await networkUtils.pingTest(printerInfo.ip);
             results.pingTest = pingResult.success;
             results.details.ping = pingResult;
 
             // Teste 2: Porta
-            console.log(`Testando porta ${networkInfo.port || 9100} em ${networkInfo.ip}...`);
-            const portResult = await networkUtils.testPrinterConnection(networkInfo.ip, networkInfo.port || 9100);
+            console.log(`Testando porta ${printerInfo.port || 9100} em ${printerInfo.ip}...`);
+            const portResult = await networkUtils.testPrinterConnection(printerInfo.ip, printerInfo.port || 9100);
             results.portTest = portResult;
             results.details.port = {
-                port: networkInfo.port || 9100,
+                port: printerInfo.port || 9100,
                 open: portResult
             };
 
             // Teste 3: Status (SNMP ou similar)
-            console.log(`Verificando status da impressora em ${networkInfo.ip}...`);
-            const statusResult = await networkUtils.checkPrinterStatus(networkInfo.ip);
+            console.log(`Verificando status da impressora em ${printerInfo.ip}...`);
+            const statusResult = await networkUtils.checkPrinterStatus(printerInfo.ip);
             results.statusCheck = statusResult;
             results.details.status = statusResult;
 
@@ -246,7 +265,7 @@ module.exports = {
             createdAt,
             new Date(),
             protocol,
-            mac_address,
+            mac_address || null, // MAC address pode ser null
             driver,
             uri,
             description,
