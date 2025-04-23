@@ -62,6 +62,7 @@ const deleteOldFiles = async (dirPath) => {
                 const id = file.replace(path.extname(file), '');
                 await FilesModel.delete(id);
 
+                console.log(`Deletando arquivo ${fullPath} devido a data de criação ${stats.birthtime}`);
                 await deleteFile(fullPath);
             }
         }
@@ -103,11 +104,7 @@ const processNewFile = async (filePath) => {
         const ext = path.extname(filePath);
         const fileExtension = ext.toLowerCase();
         if (fileExtension !== '.pdf') {
-            await deleteFile(filePath);
-            return;
-        }
-
-        if (path.dirname(filePath) === CONSTANTS.SAMBA.BASE_PATH_FILES) {
+            console.log(`Deletando arquivo ${filePath} devido a extensão ${fileExtension}`);
             await deleteFile(filePath);
             return;
         }
@@ -269,6 +266,7 @@ module.exports = {
             const fileExtension = path.extname(filePath).toLowerCase();
 
             if (fileExtension !== '.pdf') {
+                console.log(`Deletando arquivo ${filePath} devido a extensão ${fileExtension}`);
                 await deleteFile(filePath);
             }
         });
