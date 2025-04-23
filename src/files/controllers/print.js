@@ -37,7 +37,7 @@ module.exports = {
                 return responseHandler.badRequest(response, file.message);
             }
 
-            const printer = await Printers.getById(assetId);
+            const printer = await Printers.getByAssetId(assetId);
             console.log("printer", printer);
 
             if (!printer) {
