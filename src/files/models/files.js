@@ -92,4 +92,25 @@ module.exports = {
             }
         }
     },
+    delete: async (id) => {
+        try {
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.files SET deletedAt = $1 WHERE id = $2;`;
+
+            const result = await Core(sql, [new Date(), id]);
+
+            return result;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.MONITOR,
+                operation: 'Delete Data',
+                errorMessage: error.message,
+                errorStack: error.stack
+            })
+
+            return {
+                message: "Ocorreu um erro ao excluir os dados! Tente novamente mais tarde"
+            }
+        }
+    }
 }
