@@ -33,7 +33,7 @@ module.exports = {
             const { 
                 id, 
                 status, 
-                cupsName, 
+                name, 
                 createdAt,
                 protocol = 'socket',
                 mac_address,
@@ -47,8 +47,8 @@ module.exports = {
 
             console.log("request.body", request.body);
             
-            if (!cupsName) {
-                return responseHandler.badRequest(response, { message: 'Nome da impressora inválido!' });
+            if (!name) {
+                return responseHandler.badRequest(response, { message: 'Nome da impressora é obrigatório!' });
             }
             
             if (!ip_address && !uri) {
@@ -61,7 +61,7 @@ module.exports = {
             }
 
             const cupsResult = await cupsHelper.setupPrinter({
-                name: cupsName,
+                name,
                 protocol,
                 driver,
                 uri,
@@ -77,7 +77,7 @@ module.exports = {
 
             const printer = await Printer.insert([
                 id,
-                cupsName,
+                name,
                 status,
                 createdAt,
                 new Date(),
@@ -92,7 +92,7 @@ module.exports = {
             ]);
 
             if (printer && printer.message) {
-                await cupsHelper.removePrinter(cupsName);
+                await cupsHelper.removePrinter(name);
                 return responseHandler.badRequest(response, { message: printer.message });
             }
 
@@ -116,7 +116,7 @@ module.exports = {
             const { 
                 id, 
                 status, 
-                cupsName,
+                name,
                 protocol,
                 mac_address,
                 driver,
@@ -127,8 +127,8 @@ module.exports = {
                 port
             } = request.body;
 
-            if (!cupsName) {
-                return responseHandler.badRequest(response, { message: 'Nome da impressora inválido!' });
+            if (!name) {
+                return responseHandler.badRequest(response, { message: 'Nome da impressora é obrigatório!' });
             }
 
             const result = await Printer.getById(id);
@@ -137,14 +137,14 @@ module.exports = {
                 return responseHandler.badRequest(response, { message: 'Impressora não encontrada!' });
             }
 
-            const nameChanged = result.name !== cupsName;
+            const nameChanged = result.name !== name;
             
             if (nameChanged) {
                 await cupsHelper.removePrinter(result.name);
             }
 
             const cupsResult = await cupsHelper.setupPrinter({
-                name: cupsName,
+                name,
                 protocol: protocol || result.protocol,
                 driver: driver || result.driver,
                 uri: uri || result.uri,
@@ -171,7 +171,7 @@ module.exports = {
             }
 
             const printer = await Printer.update([
-                cupsName,
+                name,
                 status,
                 new Date(),
                 protocol || result.protocol,

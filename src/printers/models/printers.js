@@ -3,9 +3,13 @@ const { Core } = require('../../../db/core');
 const CONSTANTS = require('../../../helper/constants');
 
 module.exports = {
+    /**
+     * Obtém todas as impressoras
+     * @returns {Promise<Array>} Lista de impressoras
+     */
     getAll: async () => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE deletedAt IS NULL;`;
 
             let printers = await Core(sql);
 
@@ -28,9 +32,15 @@ module.exports = {
             };
         }
     },
+    
+    /**
+     * Obtém uma impressora pelo ID
+     * @param {string} id ID da impressora
+     * @returns {Promise<Object>} Dados da impressora
+     */
     getById: async (id) => {
         try {
-            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE id = $1;`;
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE id = $1 AND deletedAt IS NULL;`;
 
             const printer = await Core(sql, [id]);
 
@@ -39,16 +49,49 @@ module.exports = {
             console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
-                operation: 'Get By Id',
+                operation: 'Get Printer By Id',
                 errorMessage: error.message,
                 errorStack: error.stack
             })
 
             return {
-                message: "Ocorreu um erro ao obter as impressoras! Tente novamente mais tarde"
+                message: "Ocorreu um erro ao obter a impressora! Tente novamente mais tarde"
             };
         }
     },
+    
+    /**
+     * Obtém uma impressora pelo nome
+     * @param {string} name Nome da impressora
+     * @returns {Promise<Object>} Dados da impressora
+     */
+    getByName: async (name) => {
+        try {
+            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE name = $1 AND deletedAt IS NULL;`;
+
+            const printer = await Core(sql, [name]);
+
+            return printer;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINTER,
+                operation: 'Get Printer By Name',
+                errorMessage: error.message,
+                errorStack: error.stack
+            })
+
+            return {
+                message: "Ocorreu um erro ao obter a impressora pelo nome! Tente novamente mais tarde"
+            };
+        }
+    },
+    
+    /**
+     * Insere uma nova impressora
+     * @param {Array} data Dados da impressora
+     * @returns {Promise<Object>} Impressora inserida
+     */
     insert: async (data) => {
         try {
             const sql = `INSERT INTO ${CONSTANTS.DB.DATABASE}.printers (
@@ -66,16 +109,22 @@ module.exports = {
             console.error(error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTER,
-                operation: 'New Printer',
+                operation: 'Insert Printer',
                 errorMessage: error.message,
                 errorStack: error.stack
             })
 
             return {
-                message: "Ocorreu um erro ao cadastrar o impressora! Tente novamente mais tarde"
+                message: "Ocorreu um erro ao cadastrar a impressora! Tente novamente mais tarde"
             };
         }
     },
+    
+    /**
+     * Atualiza uma impressora existente
+     * @param {Array} data Dados da impressora
+     * @returns {Promise<Object>} Impressora atualizada
+     */
     update: async (data) => {
         try {
             const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.printers SET 
@@ -105,7 +154,67 @@ module.exports = {
             })
 
             return {
-                message: "Ocorreu um erro ao alterar o impressora! Tente novamente mais tarde"
+                message: "Ocorreu um erro ao alterar a impressora! Tente novamente mais tarde"
+            };
+        }
+    },
+    
+    /**
+     * Marca uma impressora como excluída
+     * @param {string} id ID da impressora
+     * @returns {Promise<Object>} Resultado da operação
+     */
+    delete: async (id) => {
+        try {
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.printers SET 
+                deletedAt = $1 
+            WHERE id = $2 RETURNING *;`;
+
+            const printer = await Core(sql, [new Date(), id]);
+
+            return printer;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINTER,
+                operation: 'Delete Printer',
+                errorMessage: error.message,
+                errorStack: error.stack
+            })
+
+            return {
+                message: "Ocorreu um erro ao excluir a impressora! Tente novamente mais tarde"
+            };
+        }
+    },
+    
+    /**
+     * Atualiza o status de uma impressora
+     * @param {string} id ID da impressora
+     * @param {string} status Novo status
+     * @returns {Promise<Object>} Resultado da operação
+     */
+    updateStatus: async (id, status) => {
+        try {
+            const sql = `UPDATE ${CONSTANTS.DB.DATABASE}.printers SET 
+                status = $1, 
+                updatedAt = $2 
+            WHERE id = $3 RETURNING *;`;
+
+            const printer = await Core(sql, [status, new Date(), id]);
+
+            return printer;
+        } catch (error) {
+            console.error(error);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.PRINTER,
+                operation: 'Update Printer Status',
+                errorMessage: error.message,
+                errorStack: error.stack
+            })
+
+            return {
+                message: "Ocorreu um erro ao atualizar o status da impressora! Tente novamente mais tarde"
             };
         }
     }

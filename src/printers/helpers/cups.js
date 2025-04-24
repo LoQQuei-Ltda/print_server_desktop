@@ -14,13 +14,13 @@ module.exports = {
         try {
             const {
                 name,
-                protocol,
-                driver,
+                protocol = 'socket',
+                driver = 'generic',
                 uri,
                 description,
                 location,
                 ip_address,
-                port
+                port = 9100
             } = printerData;
 
             // Se não tiver URI, construir baseado no protocolo

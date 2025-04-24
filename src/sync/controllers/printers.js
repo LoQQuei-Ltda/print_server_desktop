@@ -1,436 +1,244 @@
 const Log = require('../../../helper/log');
+const cupsHelper = require('../../printers/helpers/cups');
 const Printer = require('../../printers/models/printers');
 const CONSTANTS = require('../../../helper/constants');
 const responseHandler = require('../../../helper/responseHandler');
-const cupsUtils = require('../../printers/helpers/cups');
-const networkUtils = require('../../printers/helpers/network');
 
 module.exports = {
     /**
-     * Sincroniza impressoras recebidas da aplicação central
+     * Sincroniza impressoras recebidas do cliente desktop com o servidor local
      * @param {Request} request 
      * @param {Response} response 
      */
     syncPrinters: async (request, response) => {
         try {
             const { printers } = request.body;
-
-            if (!printers || !Array.isArray(printers)) {
-                return responseHandler.badRequest(response, 'Lista de impressoras inválida');
-            }
-
-            const syncResults = {
-                created: [],
-                updated: [],
-                errors: [],
-                unchanged: [],
-                warnings: [] // Para impressoras que foram salvas mas estão sem conexão
-            };
-
-            // Obter todas as impressoras atuais do banco
-            const currentPrinters = await Printer.getAll();
-            const currentPrintersMap = new Map();
             
-            if (Array.isArray(currentPrinters) && !currentPrinters.message) {
-                currentPrinters.forEach(printer => {
-                    currentPrintersMap.set(printer.id, printer);
+            if (!printers || !Array.isArray(printers)) {
+                return responseHandler.badRequest(response, { 
+                    message: 'Formato de dados inválido! É necessário enviar um array de impressoras.' 
                 });
             }
-
-            // Processar cada impressora recebida
+            
+            console.log(`Sincronizando ${printers.length} impressoras...`);
+            
+            // Resultado da sincronização
+            const result = {
+                success: true,
+                message: 'Sincronização de impressoras realizada com sucesso',
+                details: {
+                    total: printers.length,
+                    created: 0,
+                    updated: 0,
+                    skipped: 0,
+                    warnings: [],
+                    errors: []
+                }
+            };
+            
+            // Processar cada impressora
             for (const printer of printers) {
-                try {
-                    const {
-                        id,
-                        name,
-                        mac_address,
-                        ip_address,
-                        status = 'functional',
-                        driver = 'generic',
-                        port = 9100,
-                        protocol = 'socket',
-                        description = '',
-                        location = '',
-                        createdAt = new Date()
-                    } = printer;
-
-                    // Validações básicas
-                    if (!id || !name) {
-                        syncResults.errors.push({
-                            id: id || 'unknown',
-                            error: 'ID e nome são obrigatórios'
-                        });
-                        continue;
-                    }
-
-                    if (!ip_address) {
-                        syncResults.errors.push({
-                            id,
-                            error: 'Endereço IP é obrigatório'
-                        });
-                        continue;
-                    }
-
-                    console.log(`[${id}] Iniciando sincronização para impressora ${name} (${ip_address}:${port})`);
-
-                    // Testar conectividade usando o IP fornecido
-                    console.log(`[${id}] Testando conectividade para ${ip_address}:${port}...`);
-                    const connectivityTest = await module.exports._testPrinterConnectivity({
-                        ip: ip_address,
-                        port: port
+                const { 
+                    id, 
+                    name, 
+                    status = 'functional',
+                    ip_address,
+                    mac_address,
+                    driver = 'generic',
+                    protocol = 'socket',
+                    port = 9100,
+                    uri,
+                    description,
+                    location,
+                    connectivity
+                } = printer;
+                
+                // Verificar dados essenciais
+                if (!id || !name) {
+                    result.details.errors.push({
+                        id: id || 'unknown',
+                        name: name || 'Impressora sem nome',
+                        error: 'Dados incompletos (ID ou nome ausentes)'
                     });
-                    
-                    // Construir a URI baseada no protocolo e IP
-                    const printerUri = module.exports._buildPrinterUri(protocol, ip_address, port);
-
-                    // Preparar dados da impressora
-                    const printerData = {
+                    result.details.skipped++;
+                    continue;
+                }
+                
+                // Verificar se já existe no banco
+                const existingPrinter = await Printer.getById(id);
+                const exists = existingPrinter && existingPrinter.id;
+                
+                // Verificar conectividade com a impressora
+                let isConnected = false;
+                
+                // Se já temos informações de conectividade do cliente desktop
+                if (connectivity && connectivity.port) {
+                    isConnected = connectivity.port.open;
+                } 
+                
+                let printerWasSetUp = false;
+                
+                // Configurar impressora no CUPS
+                if (ip_address && isConnected) {
+                    try {
+                        // Dados para configuração da impressora
+                        const printerConfig = {
+                            name,
+                            protocol,
+                            driver,
+                            uri: uri || null,
+                            description: description || `Impressora ${name}`,
+                            location: location || 'Local não especificado',
+                            ip_address,
+                            port
+                        };
+                        
+                        // Tentar configurar a impressora no CUPS
+                        const cupsResult = await cupsHelper.setupPrinter(printerConfig);
+                        
+                        if (cupsResult.success) {
+                            printerWasSetUp = true;
+                            console.log(`Impressora ${name} configurada com sucesso no CUPS`);
+                        } else {
+                            result.details.warnings.push({
+                                id,
+                                name,
+                                warning: `Falha ao configurar no CUPS: ${cupsResult.message}`,
+                                connectivity: { port: { open: isConnected, number: port } }
+                            });
+                            console.warn(`Falha ao configurar impressora ${name} no CUPS: ${cupsResult.message}`);
+                        }
+                    } catch (error) {
+                        console.error(`Erro ao configurar impressora ${name} no CUPS:`, error);
+                        result.details.warnings.push({
+                            id,
+                            name,
+                            warning: `Erro ao configurar no CUPS: ${error.message}`,
+                            connectivity: { port: { open: isConnected, number: port } }
+                        });
+                    }
+                } else if (ip_address) {
+                    result.details.warnings.push({
                         id,
                         name,
-                        status,
-                        mac_address,
-                        driver,
-                        description,
-                        location,
-                        createdAt,
-                        ip_address,
-                        port,
-                        protocol,
-                        uri: printerUri
-                    };
-
-                    const existingPrinter = currentPrintersMap.get(id);
-
-                    if (!existingPrinter) {
-                        // Impressora não existe - criar nova
-                        await module.exports._createPrinter(printerData, connectivityTest, syncResults);
-                    } else {
-                        // Impressora existe - verificar se precisa atualizar
-                        await module.exports._updatePrinterIfNeeded(printerData, existingPrinter, connectivityTest, syncResults);
-                    }
-                } catch (error) {
-                    console.error(`Erro ao processar impressora ${printer.id}:`, error);
-                    syncResults.errors.push({
-                        id: printer.id || 'unknown',
-                        name: printer.name || 'unknown',
-                        error: error.message
+                        warning: `Impressora ${name} não está conectada na porta ${port}`,
+                        connectivity: { port: { open: false, number: port } }
+                    });
+                } else {
+                    result.details.warnings.push({
+                        id,
+                        name,
+                        warning: 'Impressora sem endereço IP definido'
                     });
                 }
+                
+                // Dados para o banco
+                const now = new Date();
+                
+                try {
+                    if (exists) {
+                        // Atualizar impressora existente
+                        const updated = await Printer.update([
+                            name,
+                            status,
+                            now,
+                            protocol,
+                            mac_address,
+                            driver,
+                            uri,
+                            description,
+                            location,
+                            ip_address,
+                            port,
+                            id
+                        ]);
+                        
+                        if (updated && !updated.message) {
+                            result.details.updated++;
+                            console.log(`Impressora ${name} atualizada no banco de dados`);
+                        } else {
+                            result.details.errors.push({
+                                id,
+                                name,
+                                error: updated.message || 'Erro desconhecido ao atualizar impressora'
+                            });
+                        }
+                    } else {
+                        // Inserir nova impressora
+                        const created = await Printer.insert([
+                            id,
+                            name,
+                            status,
+                            now, // createdAt
+                            now, // updatedAt
+                            protocol,
+                            mac_address,
+                            driver,
+                            uri,
+                            description,
+                            location,
+                            ip_address,
+                            port
+                        ]);
+                        
+                        if (created && !created.message) {
+                            result.details.created++;
+                            console.log(`Impressora ${name} criada no banco de dados`);
+                        } else {
+                            result.details.errors.push({
+                                id,
+                                name,
+                                error: created.message || 'Erro desconhecido ao criar impressora'
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Erro ao ${exists ? 'atualizar' : 'criar'} impressora ${name}:`, error);
+                    result.details.errors.push({
+                        id,
+                        name,
+                        error: `Erro no banco de dados: ${error.message}`
+                    });
+                    result.details.skipped++;
+                    
+                    // Se configurou no CUPS mas falhou no banco, remover do CUPS para evitar inconsistência
+                    if (printerWasSetUp) {
+                        try {
+                            await cupsHelper.removePrinter(name);
+                            console.log(`Impressora ${name} removida do CUPS devido a falha no banco de dados`);
+                        } catch (cupsError) {
+                            console.error(`Erro ao remover impressora ${name} do CUPS:`, cupsError);
+                        }
+                    }
+                }
             }
-
-            // Retornar resumo da sincronização
-            return responseHandler.success(response, 'Sincronização de impressoras concluída', {
-                summary: {
-                    total: printers.length,
-                    created: syncResults.created.length,
-                    updated: syncResults.updated.length,
-                    unchanged: syncResults.unchanged.length,
-                    errors: syncResults.errors.length,
-                    warnings: syncResults.warnings.length
-                },
-                details: syncResults
-            });
-
+            
+            // Verificar se houve erros
+            if (result.details.errors.length > 0) {
+                result.success = false;
+                result.message = `Sincronização concluída com ${result.details.errors.length} erros`;
+            }
+            
+            // Adicionar uma flag se houve apenas warnings
+            if (result.success && result.details.warnings.length > 0) {
+                result.message = `Sincronização concluída com ${result.details.warnings.length} avisos`;
+            }
+            
+            return responseHandler.success(response, result.message, result);
         } catch (error) {
+            console.error('Erro na sincronização de impressoras:', error);
             Log.error({
                 entity: CONSTANTS.LOG.MODULE.PRINTERS,
                 operation: 'Sync Printers',
                 errorMessage: error.message,
                 errorStack: error.stack,
-                userInfo: request.user?.userInfo
+                userInfo: request.user?.userInfo || null
             });
-
-            return responseHandler.internalServerError(response, 'Erro ao sincronizar impressoras');
-        }
-    },
-
-    /**
-     * Constrói a URI da impressora
-     * @private
-     */
-    _buildPrinterUri(protocol, ip, port) {
-        if (!ip) {
-            throw new Error('IP address é obrigatório para construir a URI');
-        }
-
-        switch (protocol?.toLowerCase()) {
-            case 'ipp':
-                return `ipp://${ip}${port ? ':' + port : ':631'}/ipp/print`;
-            case 'lpd':
-                return `lpd://${ip}${port ? ':' + port : ':515'}/queue`;
-            case 'smb':
-                return `smb://${ip}/printer`;
-            case 'dnssd':
-                return `dnssd://${ip}/`;
-            case 'socket':
-            default:
-                return `socket://${ip}${port ? ':' + port : ':9100'}`;
-        }
-    },
-
-    /**
-     * Testa a conectividade da impressora
-     * @private
-     */
-    async _testPrinterConnectivity(printerInfo) {
-        const results = {
-            pingTest: false,
-            portTest: false,
-            statusCheck: null,
-            overall: false,
-            details: {}
-        };
-
-        try {
-            // Teste 1: Ping
-            console.log(`Testando ping para ${printerInfo.ip}...`);
-            const pingResult = await networkUtils.pingTest(printerInfo.ip);
-            results.pingTest = pingResult.success;
-            results.details.ping = pingResult;
-
-            // Teste 2: Porta
-            console.log(`Testando porta ${printerInfo.port || 9100} em ${printerInfo.ip}...`);
-            const portResult = await networkUtils.testPrinterConnection(printerInfo.ip, printerInfo.port || 9100);
-            results.portTest = portResult;
-            results.details.port = {
-                port: printerInfo.port || 9100,
-                open: portResult
-            };
-
-            // Teste 3: Status (SNMP ou similar)
-            console.log(`Verificando status da impressora em ${printerInfo.ip}...`);
-            const statusResult = await networkUtils.checkPrinterStatus(printerInfo.ip);
-            results.statusCheck = statusResult;
-            results.details.status = statusResult;
-
-            // Resultado geral
-            results.overall = results.pingTest || results.portTest;
             
-        } catch (error) {
-            console.error('Erro nos testes de conectividade:', error);
-            results.details.error = error.message;
-        }
-
-        return results;
-    },
-
-    /**
-     * Cria uma nova impressora no banco e no CUPS
-     * @private
-     */
-    async _createPrinter(printer, connectivityTest, syncResults) {
-        if (!printer.driver) {
-            printer.driver = 'drv:///cupsfilters.drv/pwgrast.ppd';
-        }
-
-        const {
-            id,
-            name,
-            status,
-            protocol,
-            mac_address,
-            driver,
-            uri,
-            description,
-            location,
-            ip_address,
-            port,
-            createdAt
-        } = printer;
-
-        console.log(`[${id}] Configurando no CUPS...`);
-        
-        // Configurar no CUPS primeiro
-        const cupsResult = await cupsUtils.setupPrinter({
-            name,
-            protocol,
-            driver,
-            uri,
-            description,
-            location,
-            ip_address,
-            port
-        });
-
-        if (!cupsResult.success) {
-            throw new Error(`Falha ao configurar CUPS: ${cupsResult.message}`);
-        }
-
-        console.log(`[${id}] Salvando no banco de dados...`);
-        
-        // Se CUPS OK, salvar no banco
-        const dbResult = await Printer.insert([
-            id,
-            name,
-            status,
-            createdAt,
-            new Date(),
-            protocol,
-            mac_address || null, // MAC address pode ser null
-            driver,
-            uri,
-            description,
-            location,
-            ip_address,
-            port
-        ]);
-
-        if (dbResult && dbResult.message) {
-            // Se falhou no banco, desfazer no CUPS
-            await cupsUtils.removePrinter(name);
-            throw new Error(`Falha ao salvar no banco: ${dbResult.message}`);
-        }
-
-        // Verificar o status da conexão
-        if (!connectivityTest.overall) {
-            syncResults.warnings.push({ 
-                id, 
-                name,
-                warning: 'Impressora criada mas sem conexão',
-                connectivity: connectivityTest.details,
-                ip: ip_address
-            });
-        } else {
-            syncResults.created.push({ 
-                id, 
-                name,
-                ip: ip_address,
-                connectivity: connectivityTest.details
+            return responseHandler.internalServerError(response, { 
+                message: 'Ocorreu um erro durante a sincronização de impressoras',
+                error: error.message
             });
         }
-    },
-
-    /**
-     * Atualiza uma impressora se necessário
-     * @private
-     */
-    async _updatePrinterIfNeeded(newData, currentData, connectivityTest, syncResults) {
-        const changes = module.exports._detectChanges(newData, currentData);
-
-        // Verificar se o IP mudou
-        if (newData.ip_address !== currentData.ip_address) {
-            changes.push('ip_address');
-        }
-
-        if (changes.length === 0) {
-            // Mesmo que não tenha mudanças, verificar o status da conexão
-            if (!connectivityTest.overall) {
-                syncResults.warnings.push({
-                    id: newData.id,
-                    name: newData.name,
-                    warning: 'Impressora sem conexão',
-                    connectivity: connectivityTest.details,
-                    ip: newData.ip_address
-                });
-            } else {
-                syncResults.unchanged.push({ 
-                    id: newData.id, 
-                    name: newData.name,
-                    ip: newData.ip_address,
-                    connectivity: connectivityTest.details
-                });
-            }
-            return;
-        }
-
-        console.log(`[${newData.id}] Atualizando impressora...`);
-        console.log(`[${newData.id}] Mudanças detectadas: ${changes.join(', ')}`);
-
-        // Se mudou o nome, precisamos remover e recriar no CUPS
-        const nameChanged = changes.includes('name');
-        
-        if (nameChanged) {
-            console.log(`[${newData.id}] Nome mudou, removendo impressora antiga...`);
-            await cupsUtils.removePrinter(currentData.name);
-        }
-
-        // Configurar no CUPS com os novos dados
-        const cupsResult = await cupsUtils.setupPrinter({
-            name: newData.name,
-            protocol: newData.protocol,
-            driver: newData.driver,
-            uri: newData.uri,
-            description: newData.description,
-            location: newData.location,
-            ip_address: newData.ip_address,
-            port: newData.port
-        });
-
-        if (!cupsResult.success) {
-            // Se falhou, tentar reverter
-            if (nameChanged) {
-                await cupsUtils.setupPrinter({
-                    name: currentData.name,
-                    protocol: currentData.protocol,
-                    driver: currentData.driver,
-                    uri: currentData.uri,
-                    description: currentData.description,
-                    location: currentData.location,
-                    ip_address: currentData.ip_address,
-                    port: currentData.port
-                });
-            }
-            throw new Error(`Falha ao atualizar CUPS: ${cupsResult.message}`);
-        }
-
-        // Atualizar no banco
-        const dbResult = await Printer.update([
-            newData.name,
-            newData.status,
-            new Date(),
-            newData.protocol,
-            newData.mac_address,
-            newData.driver,
-            newData.uri,
-            newData.description,
-            newData.location,
-            newData.ip_address,
-            newData.port,
-            newData.id
-        ]);
-
-        if (dbResult && dbResult.message) {
-            throw new Error(`Falha ao atualizar banco: ${dbResult.message}`);
-        }
-
-        // Verificar o status da conexão
-        if (!connectivityTest.overall) {
-            syncResults.warnings.push({ 
-                id: newData.id, 
-                name: newData.name,
-                warning: 'Impressora atualizada mas sem conexão',
-                connectivity: connectivityTest.details,
-                ip: newData.ip_address,
-                changes 
-            });
-        } else {
-            syncResults.updated.push({ 
-                id: newData.id, 
-                name: newData.name,
-                ip: newData.ip_address,
-                connectivity: connectivityTest.details,
-                changes 
-            });
-        }
-    },
-
-    /**
-     * Detecta mudanças entre os dados novos e atuais
-     * @private
-     */
-    _detectChanges(newData, currentData) {
-        const changes = [];
-        const fieldsToCheck = [
-            'name', 'status', 'protocol', 'mac_address', 'driver', 
-            'uri', 'description', 'location', 'port'
-        ];
-
-        fieldsToCheck.forEach(field => {
-            if (newData[field] !== undefined && newData[field] !== currentData[field]) {
-                changes.push(field);
-            }
-        });
-
-        return changes;
     }
 };
