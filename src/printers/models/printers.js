@@ -49,29 +49,6 @@ module.exports = {
             };
         }
     },
-    getByAssetId: async (assetId) => {
-        try {
-            console.log("assetId", assetId);
-            const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE assetId = $1;`;
-
-            const printer = await Core(sql, [assetId]);
-            console.log("printer", printer);
-            
-            return printer;
-        } catch (error) {
-            console.error(error);
-            Log.error({
-                entity: CONSTANTS.LOG.MODULE.PRINTER,
-                operation: 'Get By Asset Id',
-                errorMessage: error.message,
-                errorStack: error.stack
-            })
-
-            return {
-                message: "Ocorreu um erro ao obter as impressoras! Tente novamente mais tarde"
-            };
-        }
-    },
     insert: async (data) => {
         try {
             const sql = `INSERT INTO ${CONSTANTS.DB.DATABASE}.printers (
