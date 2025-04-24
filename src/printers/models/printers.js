@@ -51,10 +51,12 @@ module.exports = {
     },
     getByAssetId: async (assetId) => {
         try {
+            console.log("assetId", assetId);
             const sql = `SELECT * FROM ${CONSTANTS.DB.DATABASE}.printers WHERE assetId = $1;`;
 
             const printer = await Core(sql, [assetId]);
-
+            console.log("printer", printer);
+            
             return printer;
         } catch (error) {
             console.error(error);
