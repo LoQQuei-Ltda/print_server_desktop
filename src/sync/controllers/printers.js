@@ -1,5 +1,6 @@
 const Log = require('../../../helper/log');
 const cupsHelper = require('../../printers/helpers/cups');
+const networkHelper = require('../../printers/helpers/network');
 const Printer = require('../../printers/models/printers');
 const CONSTANTS = require('../../../helper/constants');
 const responseHandler = require('../../../helper/responseHandler');
@@ -46,8 +47,9 @@ module.exports = {
                     mac_address,
                     driver = 'generic',
                     protocol = 'socket',
-                    port = 9100,
+                    port = getDefaultPort(protocol),
                     uri,
+                    path,
                     description,
                     location,
                     connectivity
@@ -70,11 +72,36 @@ module.exports = {
                 
                 // Verificar conectividade com a impressora
                 let isConnected = false;
+                let ippPathVerified = null;
                 
                 // Se já temos informações de conectividade do cliente desktop
                 if (connectivity && connectivity.port) {
                     isConnected = connectivity.port.open;
-                } 
+                } else if (ip_address) {
+                    // Não temos informação de conectividade, precisamos verificar
+                    if (['ipp', 'ipps'].includes(protocol.toLowerCase())) {
+                        // Para protocolos IPP/IPPS, verificar se o endpoint está respondendo
+                        try {
+                            const ippResult = await cupsHelper.testIppEndpoint(protocol, ip_address, port);
+                            if (ippResult && ippResult.valid) {
+                                isConnected = true;
+                                ippPathVerified = ippResult.path;
+                                console.log(`Endpoint IPP verificado para ${name}: ${ippPathVerified}`);
+                            } else {
+                                console.log(`Endpoint IPP não verificado para ${name}: ${ippResult.error || 'Erro desconhecido'}`);
+                            }
+                        } catch (error) {
+                            console.warn(`Erro ao verificar endpoint IPP para ${name}:`, error.message);
+                        }
+                    } else {
+                        // Para outros protocolos, verificar se a porta está aberta
+                        try {
+                            isConnected = await networkHelper.testPrinterConnection(ip_address, port);
+                        } catch (error) {
+                            console.warn(`Erro ao verificar conectividade para ${name}:`, error.message);
+                        }
+                    }
+                }
                 
                 let printerWasSetUp = false;
                 
@@ -87,6 +114,7 @@ module.exports = {
                             protocol,
                             driver,
                             uri: uri || null,
+                            path: ippPathVerified || path || null,
                             description: description || `Impressora ${name}`,
                             location: location || 'Local não especificado',
                             ip_address,
@@ -145,7 +173,7 @@ module.exports = {
                             protocol,
                             mac_address,
                             driver,
-                            uri,
+                            uri || (ippPathVerified ? `${protocol}://${ip_address}:${port}${ippPathVerified}` : null),
                             description,
                             location,
                             ip_address,
@@ -174,7 +202,7 @@ module.exports = {
                             protocol,
                             mac_address,
                             driver,
-                            uri,
+                            uri || (ippPathVerified ? `${protocol}://${ip_address}:${port}${ippPathVerified}` : null),
                             description,
                             location,
                             ip_address,
@@ -242,3 +270,25 @@ module.exports = {
         }
     }
 };
+
+/**
+ * Retorna a porta padrão para um protocolo
+ * @param {string} protocol - Protocolo
+ * @returns {number} Porta padrão
+ */
+function getDefaultPort(protocol) {
+    switch (protocol?.toLowerCase()) {
+        case 'ipp':
+        case 'ipps':
+            return 631;
+        case 'lpd':
+            return 515;
+        case 'http':
+            return 80;
+        case 'https':
+            return 443;
+        case 'socket':
+        default:
+            return 9100;
+    }
+}
