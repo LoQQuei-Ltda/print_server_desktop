@@ -203,6 +203,8 @@ function buildPrinterUri(protocol, ip, port) {
     switch (protocol?.toLowerCase()) {
         case 'ipp':
             return `ipp://${ip}${port ? ':' + port : ':631'}/ipp/print`;
+        case 'ipps':
+            return `ipps://${ip}${port ? ':' + port : ':631'}/ipp/print`;
         case 'lpd':
             return `lpd://${ip}${port ? ':' + port : ':515'}/queue`;
         case 'smb':

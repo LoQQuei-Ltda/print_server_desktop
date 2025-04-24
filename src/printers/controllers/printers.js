@@ -44,6 +44,8 @@ module.exports = {
                 ip_address,
                 port = 9100
             } = request.body;
+
+            console.log("request.body", request.body);
             
             if (!cupsName) {
                 return responseHandler.badRequest(response, { message: 'Nome da impressora inválido!' });
