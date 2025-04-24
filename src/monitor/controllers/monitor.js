@@ -79,6 +79,52 @@ const deleteOldFiles = async (dirPath) => {
     }
 }
 
+const cleanFileName = (fileName) => {
+    try {
+        let cleanName = fileName.replace(/-job_\d+\.pdf$/i, '.pdf');
+        
+        cleanName = cleanName.replace(/(?:[_\s]*[-–—][-–—]*[_\s]*|[_\s]+-)(?:Bloco de notas|Notepad|Microsoft Word|Word|Microsoft Excel|Excel|PowerPoint|LibreOffice|OpenOffice|Writer|Calc|Mozilla Firefox|Firefox|Google Chrome|Chrome|Adobe Reader|Acrobat Reader|PDF Reader|Paint|Photoshop|Illustrator|TextEdit|Sublime Text|VSCode|Visual Studio|Outlook|Thunderbird|Teams|Zoom|Skype)(?:\s*[-–—][_\s]*|[_\s]+)/i, '');
+        
+        cleanName = cleanName.replace(/(?:_-_|_-|\s-\s|\s-|-)(?:[A-Za-zÀ-ÖØ-öø-ÿ0-9\s]+)(?=-job_|\.|$)/i, '');
+        
+        const accentMap = {
+            '303_263': 'ó',
+            '303_243': 'ã',
+            '303_247': 'ç',
+            '303_265': 'á',
+            '303_251': 'é',
+            '303_245': 'õ',
+            '303_252': 'ê',
+            '303_255': 'í',
+            '303_272': 'ú',
+            '303_250': 'è',
+            '303_241': 'á',
+            '303_261': 'ñ',
+            '303_266': 'æ',
+            '303_244': 'ä',
+            '303_274': 'ü'
+        };
+        
+        Object.keys(accentMap).forEach(code => {
+            const regex = new RegExp(`_${code}|_${code}_|${code}`, 'g');
+            cleanName = cleanName.replace(regex, accentMap[code]);
+        });
+        
+        cleanName = cleanName.replace(/_/g, ' ');
+        
+        cleanName = cleanName.replace(/\.(txt|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|html|htm)\.(pdf)$/i, '.$2');
+        
+        cleanName = cleanName.replace(/\s+/g, ' ').trim();
+        
+        cleanName = cleanName.replace(/\.pdf\.pdf$/i, '.pdf');
+        
+        return cleanName;
+    } catch (error) {
+        console.error("Erro ao limpar nome do arquivo:", error);
+        return fileName;
+    }
+};
+
 const copyFile = async (source, destination) => {
     try {
         const fileData = await fs.promises.readFile(source);
@@ -109,7 +155,7 @@ const processNewFile = async (filePath) => {
             return;
         }
 
-        const fileNameSave = path.basename(filePath);
+        let fileNameSave = path.basename(filePath);
         const fileName = fileNameSave.replace(ext, '');
 
         if (uuidValidate(fileName)) {
@@ -140,6 +186,8 @@ const processNewFile = async (filePath) => {
         }
 
         const newFilePath = path.join(path.dirname(filePath), id + ext);
+
+        fileNameSave = await cleanFileName(fileNameSave);
 
         const data = [id, null, fileNameSave, pages, newFilePath, new Date()];
         await FilesModel.insert(data);
