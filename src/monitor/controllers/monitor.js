@@ -207,7 +207,11 @@ const processNewFile = async (filePath) => {
         }
 
         try {
-            await axios.get(CONSTANTS.API_DESKTOP.BASE_URL + '/api/file');
+            await axios.get(CONSTANTS.API_DESKTOP.BASE_URL + '/api/file', {
+                params: {
+                    fileId: id
+                }
+            });
         } catch (error) {
             console.error(`Erro ao enviar arquivo para API: ${filePath}`, error);
         }
