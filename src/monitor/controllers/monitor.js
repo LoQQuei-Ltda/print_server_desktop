@@ -3,11 +3,34 @@ const path = require('path');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const chokidar = require('chokidar');
+const { exec } = require('child_process');
 const { PDFDocument } = require('pdf-lib');
 const Log = require('../../../helper/log');
 const FilesModel = require('../models/files');
 const CONSTANTS = require('../../../helper/constants');
 const { v7: uuid, validate: uuidValidate } = require('uuid');
+
+function getWindowsHostIP() {
+    return new Promise((resolve, reject) => {
+        // Comando para obter o IP do Windows a partir do WSL
+        exec("ip route | grep default | awk '{print $3}'", (error, stdout) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            // Limpa o IP de possíveis espaços em branco
+            const windowsIP = stdout.trim();
+
+            // Verifica se o IP é válido
+            if (/^(\d{1,3}\.){3}\d{1,3}$/.test(windowsIP)) {
+                resolve(windowsIP);
+            } else {
+                reject(new Error('IP inválido'));
+            }
+        });
+    });
+}
 
 const getPages = async (filePath) => {
     try {
@@ -49,16 +72,16 @@ const deleteOldFiles = async (dirPath) => {
         const files = await fs.promises.readdir(dirPath);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - daysThreshold);
-    
+
         for (const file of files) {
             const fullPath = path.join(dirPath, file);
             const stats = await fs.promises.stat(fullPath);
-    
+
             if (stats.isDirectory()) {
                 await deleteOldFiles(fullPath);
                 continue;
             }
-    
+
             if (stats.isFile() && stats.mtime < cutoffDate) {
                 const id = file.replace(path.extname(file), '');
                 await FilesModel.delete(id);
@@ -83,11 +106,11 @@ const deleteOldFiles = async (dirPath) => {
 const cleanFileName = (fileName) => {
     try {
         let cleanName = fileName.replace(/-job_\d+\.pdf$/i, '.pdf');
-        
+
         cleanName = cleanName.replace(/(?:[_\s]*[-–—][-–—]*[_\s]*|[_\s]+-)(?:Bloco de notas|Notepad|Microsoft Word|Word|Microsoft Excel|Excel|PowerPoint|LibreOffice|OpenOffice|Writer|Calc|Mozilla Firefox|Firefox|Google Chrome|Chrome|Adobe Reader|Acrobat Reader|PDF Reader|Paint|Photoshop|Illustrator|TextEdit|Sublime Text|VSCode|Visual Studio|Outlook|Thunderbird|Teams|Zoom|Skype)(?:\s*[-–—][_\s]*|[_\s]+)/i, '');
-        
+
         cleanName = cleanName.replace(/(?:_-_|_-|\s-\s|\s-|-)(?:[A-Za-zÀ-ÖØ-öø-ÿ0-9\s]+)(?=-job_|\.|$)/i, '');
-        
+
         const accentMap = {
             '303_263': 'ó',
             '303_243': 'ã',
@@ -105,20 +128,20 @@ const cleanFileName = (fileName) => {
             '303_244': 'ä',
             '303_274': 'ü'
         };
-        
+
         Object.keys(accentMap).forEach(code => {
             const regex = new RegExp(`_${code}|_${code}_|${code}`, 'g');
             cleanName = cleanName.replace(regex, accentMap[code]);
         });
-        
+
         cleanName = cleanName.replace(/_/g, ' ');
-        
+
         cleanName = cleanName.replace(/\.(txt|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|html|htm)\.(pdf)$/i, '.$2');
-        
+
         cleanName = cleanName.replace(/\s+/g, ' ').trim();
-        
+
         cleanName = cleanName.replace(/\.pdf\.pdf$/i, '.pdf');
-        
+
         return cleanName;
     } catch (error) {
         console.error("Erro ao limpar nome do arquivo:", error);
@@ -129,12 +152,12 @@ const cleanFileName = (fileName) => {
 const copyFile = async (source, destination) => {
     try {
         const fileData = await fs.promises.readFile(source);
-        
+
         await fs.promises.writeFile(destination, fileData);
-        
+
         const sourceStats = await fs.promises.stat(source);
         const destStats = await fs.promises.stat(destination);
-        
+
         if (destStats.size === sourceStats.size) {
             return true;
         } else {
@@ -194,7 +217,7 @@ const processNewFile = async (filePath) => {
         await FilesModel.insert(data);
 
         const copied = await copyFile(filePath, newFilePath);
-        
+
         if (copied) {
             try {
                 await fs.promises.unlink(filePath);
@@ -206,15 +229,18 @@ const processNewFile = async (filePath) => {
             await FilesModel.delete(id);
         }
 
+        const ip = await getWindowsHostIP();
+        const base_url = `http://${ip}:56257/api/file`
+
         try {
             console.log('Enviando arquivo para API');
-            await axios.get(CONSTANTS.API_DESKTOP.BASE_URL + '/api/file', {
+            await axios.get(base_url, {
                 params: {
                     fileId: id
                 }
             });
         } catch (error) {
-            console.error(`Erro ao enviar arquivo para API: ${filePath}`, error);
+            console.error(`Erro ao enviar arquivo para API: ${id}`, error);
         }
     } catch (error) {
         console.error(`Erro no processamento do arquivo ${filePath}:`, error);
@@ -231,25 +257,25 @@ const checkAllFiles = async (dirPath) => {
     try {
         // console.log(`Verificando todos os arquivos em: ${dirPath}`);
         const items = await fs.promises.readdir(dirPath);
-        
+
         for (const item of items) {
             const fullPath = path.join(dirPath, item);
             const stats = await fs.promises.stat(fullPath);
-            
+
             if (stats.isDirectory()) {
                 await checkAllFiles(fullPath);
                 continue;
             }
-            
+
             if (stats.isFile()) {
                 const ext = path.extname(fullPath).toLowerCase();
                 if (ext !== '.pdf') {
                     continue;
                 }
-                
+
                 const fileName = path.basename(fullPath);
                 const fileNameWithoutExt = fileName.replace(ext, '');
-                
+
                 if (uuidValidate(fileNameWithoutExt)) {
                     const existingFile = await FilesModel.getById(fileNameWithoutExt);
                     if (!existingFile || !existingFile.id) {
@@ -258,7 +284,7 @@ const checkAllFiles = async (dirPath) => {
                     }
                     continue;
                 }
-                
+
                 console.log(`Verificando arquivo não processado: ${fullPath}`);
                 await processNewFile(fullPath);
             }
@@ -279,7 +305,7 @@ const processedFiles = new Set();
 
 module.exports = {
     monitorStart: async () => {
-        
+
         if (!fs.existsSync(CONSTANTS.SAMBA.BASE_PATH_FILES)) {
             console.log(`Criando diretório base: ${CONSTANTS.SAMBA.BASE_PATH_FILES}`);
             await fs.mkdirSync(CONSTANTS.SAMBA.BASE_PATH_FILES, { recursive: true });
@@ -300,13 +326,13 @@ module.exports = {
             }
         });
 
-        watcher.on('add', async (filePath) => {            
+        watcher.on('add', async (filePath) => {
             if (processedFiles.has(filePath)) {
                 return;
             }
-            
+
             processedFiles.add(filePath);
-            
+
             setTimeout(async () => {
                 try {
                     if (fs.existsSync(filePath)) {
@@ -360,7 +386,7 @@ module.exports = {
                 errorStack: error.stack
             });
         });
-        
+
         setInterval(() => {
             checkAllFiles(CONSTANTS.SAMBA.BASE_PATH_FILES);
         }, 1000 * 5); // 5 segundos
@@ -369,7 +395,7 @@ module.exports = {
             console.log("Executando limpeza de arquivos antigos");
             deleteOldFiles(CONSTANTS.SAMBA.BASE_PATH_FILES);
         }, 1000 * 60 * 60); // 1 hora
-        
+
         console.log("Monitor iniciado com sucesso");
     }
 };
