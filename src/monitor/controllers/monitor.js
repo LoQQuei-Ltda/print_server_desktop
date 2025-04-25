@@ -207,6 +207,7 @@ const processNewFile = async (filePath) => {
         }
 
         try {
+            console.log('Enviando arquivo para API');
             await axios.get(CONSTANTS.API_DESKTOP.BASE_URL + '/api/file', {
                 params: {
                     fileId: id
