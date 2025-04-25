@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const dotenv = require('dotenv');
 const chokidar = require('chokidar');
 const { PDFDocument } = require('pdf-lib');
@@ -203,6 +204,12 @@ const processNewFile = async (filePath) => {
         } else {
             console.error(`Falha ao copiar arquivo. Removendo do banco: ${id}`);
             await FilesModel.delete(id);
+        }
+
+        try {
+            await axios.get(CONSTANTS.API_DESKTOP.BASE_URL + '/api/file');
+        } catch (error) {
+            console.error(`Erro ao enviar arquivo para API: ${filePath}`, error);
         }
     } catch (error) {
         console.error(`Erro no processamento do arquivo ${filePath}:`, error);

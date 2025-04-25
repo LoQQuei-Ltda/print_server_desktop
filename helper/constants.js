@@ -1,4 +1,7 @@
 const CONSTANTS = {
+    API_DESKTOP: {
+        BASE_URL: 'http://localhost:56257',
+    },
     DB: {
         HOST: 'localhost',
         PORT: 5432,
