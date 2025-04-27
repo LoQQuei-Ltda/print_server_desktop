@@ -230,7 +230,7 @@ const processNewFile = async (filePath) => {
         }
 
         const ip = await getWindowsHostIP();
-        const base_url = `http://${ip}:56257/api/file`
+        const base_url = `http://${ip}:56257/api/new-file`
 
         try {
             console.log('Enviando arquivo para API');
