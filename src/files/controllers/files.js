@@ -23,9 +23,7 @@ const deleteFile = async (filePath) => {
 module.exports = {
     getFiles: async (request, response) => {
         try {
-            const id = request.params.id;
-
-            const files = await Files.getForPrint(id);
+            const files = await Files.getForPrint();
             if (files.message) {
                 return responseHandler.badRequest(response, files.message);
             }

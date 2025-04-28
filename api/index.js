@@ -15,6 +15,7 @@ const {
 
 // Files
 const { getFiles, updateSynced, deleteFile } = require('../src/files/controllers/files');
+const { deleteAll } = require('../src/files/controllers/deleteAll');
 
 // Print File
 const { printFile } = require('../src/files/controllers/print');
@@ -36,6 +37,7 @@ router.get('/printers/drivers', getAvailableDrivers);
 // Files
 router.get('/files', getFiles);
 router.delete('/files/:id', deleteFile);
+router.delete('/files/delete-all', deleteAll);
 
 // Get Sync Info
 router.get('/sync', getSyncInfo);
