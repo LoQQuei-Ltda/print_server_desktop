@@ -23,6 +23,18 @@ module.exports = {
             
             console.log(`Sincronizando ${printers.length} impressoras...`);
             
+            // Obter todas as impressoras do banco de dados
+            const dbPrinters = await Printer.getAll();
+            
+            if (dbPrinters.message) {
+                return responseHandler.badRequest(response, { 
+                    message: `Erro ao obter impressoras do banco: ${dbPrinters.message}` 
+                });
+            }
+            
+            // Criar um mapa de IDs de impressoras enviadas pelo cliente
+            const clientPrinterIds = new Set(printers.map(p => p.id));
+            
             // Resultado da sincronização
             const result = {
                 success: true,
@@ -31,6 +43,7 @@ module.exports = {
                     total: printers.length,
                     created: 0,
                     updated: 0,
+                    deleted: 0,
                     skipped: 0,
                     warnings: [],
                     errors: []
@@ -241,15 +254,53 @@ module.exports = {
                 }
             }
             
+            // Verifica quais impressoras existem no banco mas não estão na lista do cliente
+            if (Array.isArray(dbPrinters) && dbPrinters.length > 0) {
+                for (const dbPrinter of dbPrinters) {
+                    // Se a impressora não estiver na lista do cliente, marcá-la como excluída
+                    if (!clientPrinterIds.has(dbPrinter.id) && !dbPrinter.deletedAt) {
+                        try {
+                            // Remover do CUPS primeiro
+                            await cupsHelper.removePrinter(dbPrinter.name);
+                            console.log(`Impressora ${dbPrinter.name} removida do CUPS`);
+                            
+                            // Marcar como excluída no banco de dados
+                            const deleted = await Printer.delete(dbPrinter.id);
+                            
+                            if (deleted && !deleted.message) {
+                                result.details.deleted++;
+                                console.log(`Impressora ${dbPrinter.name} marcada como excluída no banco de dados`);
+                            } else {
+                                result.details.errors.push({
+                                    id: dbPrinter.id,
+                                    name: dbPrinter.name,
+                                    error: deleted.message || 'Erro desconhecido ao marcar impressora como excluída'
+                                });
+                            }
+                        } catch (error) {
+                            console.error(`Erro ao excluir impressora ${dbPrinter.name}:`, error);
+                            result.details.errors.push({
+                                id: dbPrinter.id,
+                                name: dbPrinter.name,
+                                error: `Erro ao excluir impressora: ${error.message}`
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Atualizar mensagem final incluindo impressoras excluídas
+            result.message = `Sincronização concluída: ${result.details.created} criadas, ${result.details.updated} atualizadas, ${result.details.deleted} excluídas`;
+            
             // Verificar se houve erros
             if (result.details.errors.length > 0) {
                 result.success = false;
-                result.message = `Sincronização concluída com ${result.details.errors.length} erros`;
+                result.message += `, ${result.details.errors.length} erros`;
             }
             
             // Adicionar uma flag se houve apenas warnings
             if (result.success && result.details.warnings.length > 0) {
-                result.message = `Sincronização concluída com ${result.details.warnings.length} avisos`;
+                result.message += `, ${result.details.warnings.length} avisos`;
             }
             
             return responseHandler.success(response, result.message, result);
