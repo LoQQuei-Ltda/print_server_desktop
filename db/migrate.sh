@@ -78,9 +78,9 @@ check_logs_table() {
         return 0
     fi
     
-    # Verificar especificamente a coluna beforeData/beforedata
-    if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1 FROM information_schema.columns WHERE table_schema = '$DB_SCHEMA' AND table_name = 'logs' AND lower(column_name) = 'beforedata'" | grep -q 1; then
-        log "AVISO: Coluna beforeData/beforedata não existe na tabela logs!"
+    # Verificar especificamente a coluna beforeData/beforeData
+    if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1 FROM information_schema.columns WHERE table_schema = '$DB_SCHEMA' AND table_name = 'logs' AND lower(column_name) = 'beforeData'" | grep -q 1; then
+        log "AVISO: Coluna beforeData/beforeData não existe na tabela logs!"
         log "Adicionando coluna beforeData à tabela logs..."
         
         # Verificar se alguma coluna começa com 'before'
@@ -95,9 +95,9 @@ check_logs_table() {
         fi
     fi
     
-    # Verificar especificamente a coluna afterData/afterdata
-    if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1 FROM information_schema.columns WHERE table_schema = '$DB_SCHEMA' AND table_name = 'logs' AND lower(column_name) = 'afterdata'" | grep -q 1; then
-        log "AVISO: Coluna afterData/afterdata não existe na tabela logs!"
+    # Verificar especificamente a coluna afterData/afterData
+    if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1 FROM information_schema.columns WHERE table_schema = '$DB_SCHEMA' AND table_name = 'logs' AND lower(column_name) = 'afterData'" | grep -q 1; then
+        log "AVISO: Coluna afterData/afterData não existe na tabela logs!"
         log "Adicionando coluna afterData à tabela logs..."
         
         # Verificar se alguma coluna começa com 'after'
