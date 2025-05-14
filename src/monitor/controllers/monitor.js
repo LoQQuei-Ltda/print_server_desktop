@@ -1,3 +1,4 @@
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -10,26 +11,345 @@ const FilesModel = require('../models/files');
 const CONSTANTS = require('../../../helper/constants');
 const { v7: uuid, validate: uuidValidate } = require('uuid');
 
-function getWindowsHostIP() {
-    return new Promise((resolve, reject) => {
-        // Comando para obter o IP do Windows a partir do WSL
-        exec("ip route | grep default | awk '{print $3}'", (error, stdout) => {
-            if (error) {
-                reject(error);
-                return;
-            }
+const activeApiIPs = {
+    ips: [],
+    lastUpdated: 0
+};
 
-            // Limpa o IP de possíveis espaços em branco
-            const windowsIP = stdout.trim();
-
-            // Verifica se o IP é válido
-            if (/^(\d{1,3}\.){3}\d{1,3}$/.test(windowsIP)) {
-                resolve(windowsIP);
-            } else {
-                reject(new Error('IP inválido'));
+async function getAllWindowsIPs() {
+    try {
+        const allIPs = new Set();
+        
+        // Método específico para WSL2 - host.docker.internal
+        try {
+            const dockerHostIP = await new Promise((resolve, reject) => {
+                exec("ping -c 1 host.docker.internal | grep PING | awk -F'[\\(\\)]' '{print $2}'", (error, stdout) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    const ip = stdout.trim();
+                    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                        resolve(ip);
+                    } else {
+                        reject(new Error('IP inválido ou host.docker.internal não resolvido'));
+                    }
+                });
+            });
+            allIPs.add(dockerHostIP);
+            console.log(`Método WSL2 (host.docker.internal): ${dockerHostIP}`);
+        } catch (error) {
+            console.log('Método host.docker.internal falhou:', error.message);
+        }
+        
+        // Método WSL2 - resolv.conf (mais confiável e específico)
+        try {
+            const resolvConfContent = await fs.promises.readFile('/etc/resolv.conf', 'utf8');
+            const nameserverMatch = resolvConfContent.match(/nameserver\s+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (nameserverMatch && nameserverMatch[1]) {
+                allIPs.add(nameserverMatch[1]);
+                console.log(`Método WSL2 (resolv.conf específico): ${nameserverMatch[1]}`);
             }
+        } catch (error) {
+            console.log('Método resolv.conf específico falhou:', error.message);
+        }
+        
+        // Método específico do /run/wslu/runtime (presente em algumas distribuições WSL)
+        try {
+            if (fs.existsSync('/run/wslu/runtime')) {
+                const wsluRuntime = await fs.promises.readFile('/run/wslu/runtime', 'utf8');
+                const hostIpMatch = wsluRuntime.match(/WINDOWSIP=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+                if (hostIpMatch && hostIpMatch[1]) {
+                    allIPs.add(hostIpMatch[1]);
+                    console.log(`Método WSL WSLU runtime: ${hostIpMatch[1]}`);
+                }
+            }
+        } catch (error) {
+            console.log('Método WSLU runtime falhou:', error.message);
+        }
+        
+        // Método 1: Pelo gateway
+        try {
+            const gatewayIP = await new Promise((resolve, reject) => {
+                exec("ip route | grep default | awk '{print $3}'", (error, stdout) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    const ip = stdout.trim();
+                    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                        resolve(ip);
+                    } else {
+                        reject(new Error('IP inválido'));
+                    }
+                });
+            });
+            allIPs.add(gatewayIP);
+            console.log(`Método 1 (Gateway): ${gatewayIP}`);
+        } catch (error) {
+            console.log('Método 1 falhou:', error.message);
+        }
+
+        // Método 2: Pelo ifconfig (corrigido regex)
+        try {
+            const ipconfigOutput = await new Promise((resolve, reject) => {
+                exec("ifconfig", (error, stdout) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    resolve(stdout);
+                });
+            });
+            
+            // Regex melhorado para capturar corretamente os IPs do ifconfig
+            const ipv4Regex = /inet (?:addr:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g;
+            let match;
+            while ((match = ipv4Regex.exec(ipconfigOutput)) !== null) {
+                if (match[1] && match[1] !== '127.0.0.1') {
+                    allIPs.add(match[1]);
+                    console.log(`Método 2 (ifconfig): ${match[1]}`);
+                }
+            }
+        } catch (error) {
+            console.log('Método 2 falhou:', error.message);
+        }
+
+        // Método 3: Pelo Hostname
+        try {
+            const hostnameIPs = await new Promise((resolve, reject) => {
+                exec("hostname -I", (error, stdout) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    resolve(stdout.trim().split(' '));
+                });
+            });
+            
+            for (const ip of hostnameIPs) {
+                if (ip && ip !== '' && ip !== '127.0.0.1' && /^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                    allIPs.add(ip);
+                    console.log(`Método 3 (hostname -I): ${ip}`);
+                }
+            }
+        } catch (error) {
+            console.log('Método 3 falhou:', error.message);
+        }
+
+        // Método 4: Pelo os.networkInterfaces()
+        try {
+            const interfaces = os.networkInterfaces();
+            for (const interfaceName in interfaces) {
+                for (const iface of interfaces[interfaceName]) {
+                    if (iface.family === 'IPv4' && !iface.internal) {
+                        allIPs.add(iface.address);
+                        console.log(`Método 4 (os.networkInterfaces): ${iface.address}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('Método 4 falhou:', error.message);
+        }
+
+        // Método 5: Pelo resolv.conf (original, mantido por compatibilidade)
+        try {
+            const wslIP = await new Promise((resolve, reject) => {
+                exec("cat /etc/resolv.conf | grep nameserver | awk '{print $2}'", (error, stdout) => {
+                    if (error) {
+                        reject(error);
+                        return;
+                    }
+                    const ip = stdout.trim();
+                    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                        resolve(ip);
+                    } else {
+                        reject(new Error('IP inválido'));
+                    }
+                });
+            });
+            allIPs.add(wslIP);
+            console.log(`Método 5 (resolv.conf): ${wslIP}`);
+        } catch (error) {
+            console.log('Método 5 falhou:', error.message);
+        }
+        
+        // Método adicional: IP hardcoded mais comuns do WSL2
+        const commonWSLHostIPs = ['172.17.0.1', '172.18.0.1', '172.19.0.1', '172.20.0.1', '172.21.0.1', '172.22.0.1', '192.168.0.1'];
+        for (const ip of commonWSLHostIPs) {
+            allIPs.add(ip);
+            console.log(`Método adicional (IP comum WSL): ${ip}`);
+        }
+
+        const result = Array.from(allIPs).filter(ip => {
+            return !ip.startsWith('10.') && !ip.startsWith('127.') && 
+                   !(ip.startsWith('192.168.') && ip.endsWith('.2')) && // WSL IP comum
+                   !(ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 17 && 
+                     parseInt(ip.split('.')[1]) <= 31 && ip.endsWith('.2')); // WSL IP range
         });
+        
+        if (result.length === 0) {
+            return Array.from(allIPs);
+        }
+        
+        return result;
+    } catch (error) {
+        console.error('Erro ao coletar IPs:', error);
+        return ['127.0.0.1'];
+    }
+}
+
+async function checkMultipleApiConnectivity(ips, timeout = 1000) {
+    console.log(`Testando conectividade com ${ips.length} IPs simultaneamente`);
+    
+    // Função auxiliar para verificar um único IP
+    const checkSingleIP = (ip) => {
+        return axios.get(`http://${ip}:56257/api`, { timeout })
+            .then(response => {
+                if (response.status === 200) {
+                    console.log(`✅ API em ${ip} está respondendo corretamente`);
+                    return { ip, active: true };
+                } else {
+                    console.log(`❌ API em ${ip} respondeu com status ${response.status}`);
+                    return { ip, active: false };
+                }
+            })
+            .catch(error => {
+                console.log(`❌ API em ${ip} não está acessível: ${error.message}`);
+                return { ip, active: false };
+            });
+    };
+    
+    // Cria um array de promessas para verificar todos os IPs simultaneamente
+    const connectivityPromises = ips.map(ip => {
+        console.log(`Testando conexão com: http://${ip}:56257/api`);
+        return checkSingleIP(ip);
     });
+    
+    // Executa todas as verificações em paralelo e aguarda os resultados
+    const results = await Promise.all(connectivityPromises);
+    
+    // Filtra apenas os IPs ativos
+    const activeIPs = results
+        .filter(result => result.active)
+        .map(result => result.ip);
+    
+    console.log(`IPs ativos encontrados (${activeIPs.length}): ${JSON.stringify(activeIPs)}`);
+    
+    // Atualiza o cache de IPs ativos
+    activeApiIPs.ips = activeIPs;
+    activeApiIPs.lastUpdated = Date.now();
+    
+    return activeIPs;
+}
+
+async function sendFileToApi(fileId) {
+    try {
+        let ipsToTry = [];
+        const cacheValidityTime = 5 * 60 * 1000; // 5 minutos em milissegundos
+        
+        // Verifica se tem cache válido de IPs ativos
+        if (activeApiIPs.ips.length > 0 && 
+            (Date.now() - activeApiIPs.lastUpdated) < cacheValidityTime) {
+            
+            console.log(`Usando cache de IPs ativos (${activeApiIPs.ips.length}): ${JSON.stringify(activeApiIPs.ips)}`);
+            ipsToTry = activeApiIPs.ips;
+        } else {
+            console.log("Cache de IPs expirado ou vazio, coletando novos IPs...");
+            const allIPs = await getAllWindowsIPs();
+            
+            // Testa todos os IPs coletados em paralelo
+            ipsToTry = await checkMultipleApiConnectivity(allIPs);
+            
+            // Se não encontra nenhum IP ativo, tenta todos os IPs
+            if (ipsToTry.length === 0) {
+                console.log("Nenhum IP ativo encontrado, tentando todos os IPs coletados.");
+                ipsToTry = allIPs;
+            }
+        }
+        
+        // Tenta enviar o arquivo para os IPs
+        let apiCallSucceeded = false;
+        const apiErrors = [];
+        
+        for (const ip of ipsToTry) {
+            const base_url = `http://${ip}:56257/api/new-file`;
+            try {
+                console.log(`Tentando enviar arquivo ${fileId} para API em ${base_url}`);
+                const response = await axios.get(base_url, {
+                    params: {
+                        fileId: fileId
+                    },
+                    timeout: 1000
+                });
+                
+                if (response.status === 200) {
+                    console.log(`✅ Arquivo ${fileId} enviado com sucesso para API em ${base_url}`);
+                    apiCallSucceeded = true;
+                    
+                    // Se este IP não estiver no cache, adiciona
+                    if (!activeApiIPs.ips.includes(ip)) {
+                        activeApiIPs.ips.push(ip);
+                        activeApiIPs.lastUpdated = Date.now();
+                        console.log(`Adicionado IP ${ip} ao cache de IPs ativos`);
+                    }
+                    
+                    break;
+                } else {
+                    const errorMsg = `❌ API em ${base_url} respondeu com status ${response.status}`;
+                    console.error(errorMsg);
+                    apiErrors.push(errorMsg);
+                    
+                    // Remove este IP do cache se estava lá
+                    activeApiIPs.ips = activeApiIPs.ips.filter(cachedIp => cachedIp !== ip);
+                }
+            } catch (error) {
+                const errorMsg = `❌ Erro ao enviar arquivo ${fileId} para API em ${base_url}: ${error.message}`;
+                console.error(errorMsg);
+                apiErrors.push(errorMsg);
+                
+                // Remove este IP do cache se estava lá
+                activeApiIPs.ips = activeApiIPs.ips.filter(cachedIp => cachedIp !== ip);
+            }
+        }
+
+        if (!apiCallSucceeded) {
+            console.error(`❌ Todas as tentativas de envio do arquivo ${fileId} para API falharam`);
+            Log.error({
+                entity: CONSTANTS.LOG.MODULE.MONITOR,
+                operation: 'Send File to API',
+                errorMessage: `Todas as tentativas de envio do arquivo ${fileId} para API falharam`,
+                errorStack: apiErrors.join('\n')
+            });
+            
+            // Limpa o cache para forçar uma nova coleta na próxima tentativa
+            activeApiIPs.ips = [];
+            
+            return false;
+        }
+        
+        return true;
+    } catch (error) {
+        console.error(`Erro no envio do arquivo ${fileId} para API:`, error);
+        Log.error({
+            entity: CONSTANTS.LOG.MODULE.MONITOR,
+            operation: 'Send File to API',
+            errorMessage: error.message,
+            errorStack: error.stack
+        });
+        return false;
+    }
+}
+
+async function refreshActiveIPs() {
+    try {
+        console.log("Atualizando cache de IPs ativos...");
+        const allIPs = await getAllWindowsIPs();
+        await checkMultipleApiConnectivity(allIPs);
+        console.log(`Cache de IPs atualizado. IPs ativos: ${JSON.stringify(activeApiIPs.ips)}`);
+    } catch (error) {
+        console.error("Erro ao atualizar cache de IPs:", error);
+    }
 }
 
 const getPages = async (filePath) => {
@@ -229,18 +549,10 @@ const processNewFile = async (filePath) => {
             await FilesModel.delete(id);
         }
 
-        const ip = await getWindowsHostIP();
-        const base_url = `http://${ip}:56257/api/new-file`
-
-        try {
-            console.log('Enviando arquivo para API');
-            await axios.get(base_url, {
-                params: {
-                    fileId: id
-                }
-            });
-        } catch (error) {
-            console.error(`Erro ao enviar arquivo para API: ${id}`, error);
+        const apiSuccess = await sendFileToApi(id);
+        
+        if (!apiSuccess) {
+            console.log(`Arquivo ${id} inserido no banco mas não foi possível notificar a API. Será tentado novamente mais tarde.`);
         }
     } catch (error) {
         console.error(`Erro no processamento do arquivo ${filePath}:`, error);
@@ -310,6 +622,8 @@ module.exports = {
             console.log(`Criando diretório base: ${CONSTANTS.SAMBA.BASE_PATH_FILES}`);
             await fs.mkdirSync(CONSTANTS.SAMBA.BASE_PATH_FILES, { recursive: true });
         }
+
+        await refreshActiveIPs();
 
         await checkAllFiles(CONSTANTS.SAMBA.BASE_PATH_FILES);
 
